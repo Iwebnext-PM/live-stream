@@ -1,0 +1,420 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrapAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'rituparno.tnts@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrapAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidSiteSettings(data) {
+      return data.keys().hasAll([
+        'heroHeadline', 'heroSubheadline', 'primaryCtaLabel', 'secondaryCtaLabel',
+        'heroMediaUrl', 'activeViewersCount', 'liveChannelsCount', 'totalBroadcastsCount', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'heroHeadline', 'heroSubheadline', 'primaryCtaLabel', 'secondaryCtaLabel',
+        'heroMediaUrl', 'activeViewersCount', 'liveChannelsCount', 'totalBroadcastsCount',
+        'streamingBannerNotice', 'updatedAt'
+      ])
+      && isValidString(data.heroHeadline, 5, 140)
+      && isValidString(data.heroSubheadline, 10, 500)
+      && isValidString(data.primaryCtaLabel, 2, 40)
+      && isValidString(data.secondaryCtaLabel, 2, 40)
+      && isValidString(data.heroMediaUrl, 0, 500)
+      && (!('streamingBannerNotice' in data) || isValidString(data.streamingBannerNotice, 0, 300))
+      && data.activeViewersCount is number && data.activeViewersCount >= 0
+      && data.liveChannelsCount is number && data.liveChannelsCount >= 0
+      && data.totalBroadcastsCount is number && data.totalBroadcastsCount >= 0
+      && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'slug', 'sortOrder', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['name', 'slug', 'description', 'sortOrder', 'createdAt', 'updatedAt'])
+        && isValidString(data.name, 1, 50)
+        && isValidString(data.slug, 1, 50) && data.slug.matches('^[a-z0-9-]+$')
+        && (!('description' in data) || isValidString(data.description, 0, 200))
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 1000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidCreator(data) {
+      return data.keys().hasAll([
+        'name', 'handle', 'bio', 'avatarUrl', 'primaryCategory',
+        'followersCount', 'isFeatured', 'isVerified', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'name', 'handle', 'bio', 'avatarUrl', 'primaryCategory',
+        'followersCount', 'isFeatured', 'isVerified', 'ownerUid', 'createdAt', 'updatedAt'
+      ])
+      && isValidString(data.name, 1, 80)
+      && isValidString(data.handle, 2, 50) && data.handle.matches('^[a-zA-Z0-9_.-]+$')
+      && isValidString(data.bio, 0, 600)
+      && isValidString(data.avatarUrl, 0, 500)
+      && isValidString(data.primaryCategory, 1, 50)
+      && (!('ownerUid' in data) || isValidString(data.ownerUid, 1, 128))
+      && data.followersCount is number && data.followersCount >= 0
+      && data.isFeatured is bool
+      && data.isVerified is bool
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidStream(data) {
+      return data.keys().hasAll([
+        'title', 'creatorId', 'creatorName', 'category', 'tags',
+        'thumbnailUrl', 'viewerCount', 'isLive', 'isDemo', 'quality',
+        'providerType', 'ownerUid', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'title', 'description', 'creatorId', 'creatorName', 'creatorAvatarUrl',
+        'category', 'tags', 'thumbnailUrl', 'videoPreviewUrl', 'viewerCount',
+        'isLive', 'isDemo', 'quality', 'providerType', 'ownerUid', 'createdAt', 'updatedAt'
+      ])
+      && isValidString(data.title, 2, 140)
+      && (!('description' in data) || isValidString(data.description, 0, 600))
+      && isValidId(data.creatorId)
+      && isValidString(data.creatorName, 1, 80)
+      && (!('creatorAvatarUrl' in data) || isValidString(data.creatorAvatarUrl, 0, 500))
+      && isValidString(data.category, 1, 50)
+      && data.tags is list && data.tags.size() <= 6
+      && (data.tags.size() == 0 || isValidString(data.tags[0], 1, 30))
+      && isValidString(data.thumbnailUrl, 0, 500)
+      && (!('videoPreviewUrl' in data) || isValidString(data.videoPreviewUrl, 0, 500))
+      && data.viewerCount is number && data.viewerCount >= 0
+      && data.isLive is bool
+      && data.isDemo is bool
+      && data.quality in ['1080p60', '720p60', '480p', 'Auto']
+      && data.providerType in ['demo', 'livekit', 'agora', 'webrtc']
+      && isValidString(data.ownerUid, 1, 128)
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidChatMessage(data, streamId) {
+      return data.keys().hasAll(['streamId', 'authorUid', 'authorName', 'text', 'createdAt'])
+        && data.keys().hasOnly(['streamId', 'authorUid', 'authorName', 'text', 'createdAt'])
+        && data.streamId == streamId
+        && data.authorUid == request.auth.uid
+        && isValidString(data.authorName, 1, 80)
+        && isValidString(data.text, 1, 400)
+        && data.createdAt is timestamp && data.createdAt == request.time;
+    }
+
+    function isValidPricingPlan(data) {
+      return data.keys().hasAll([
+        'name', 'tagline', 'priceLabel', 'billingCycle', 'features',
+        'isPopular', 'ctaLabel', 'sortOrder', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'name', 'tagline', 'priceLabel', 'billingCycle', 'features',
+        'isPopular', 'ctaLabel', 'sortOrder', 'updatedAt'
+      ])
+      && isValidString(data.name, 1, 60)
+      && isValidString(data.tagline, 0, 120)
+      && isValidString(data.priceLabel, 1, 40)
+      && isValidString(data.billingCycle, 0, 40)
+      && data.features is list && data.features.size() <= 12
+      && (data.features.size() == 0 || isValidString(data.features[0], 1, 140))
+      && data.isPopular is bool
+      && isValidString(data.ctaLabel, 1, 40)
+      && data.sortOrder is number && data.sortOrder >= 0
+      && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidTestimonial(data) {
+      return data.keys().hasAll([
+        'authorName', 'authorRole', 'organization', 'avatarUrl',
+        'quote', 'isSample', 'sortOrder', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'authorName', 'authorRole', 'organization', 'avatarUrl',
+        'quote', 'isSample', 'sortOrder', 'updatedAt'
+      ])
+      && isValidString(data.authorName, 1, 80)
+      && isValidString(data.authorRole, 1, 100)
+      && isValidString(data.organization, 1, 100)
+      && isValidString(data.avatarUrl, 0, 500)
+      && isValidString(data.quote, 10, 500)
+      && data.isSample is bool
+      && data.sortOrder is number && data.sortOrder >= 0
+      && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidFaq(data) {
+      return data.keys().hasAll(['question', 'answer', 'sortOrder', 'updatedAt'])
+        && data.keys().hasOnly(['question', 'answer', 'sortOrder', 'updatedAt'])
+        && isValidString(data.question, 5, 200)
+        && isValidString(data.answer, 5, 1000)
+        && data.sortOrder is number && data.sortOrder >= 0
+        && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidContactSubmission(data) {
+      return data.keys().hasAll(['fullName', 'email', 'subject', 'message', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['fullName', 'email', 'phone', 'subject', 'message', 'status', 'createdAt', 'updatedAt'])
+        && isValidString(data.fullName, 2, 100)
+        && isValidString(data.email, 5, 120) && data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && (!('phone' in data) || isValidString(data.phone, 0, 30))
+        && isValidString(data.subject, 2, 140)
+        && isValidString(data.message, 5, 2000)
+        && data.status in ['new', 'reviewed', 'resolved']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidMediaAsset(data) {
+      return data.keys().hasAll(['title', 'mediaType', 'url', 'category', 'uploadedByUid', 'createdAt'])
+        && data.keys().hasOnly(['title', 'mediaType', 'url', 'category', 'uploadedByUid', 'createdAt'])
+        && isValidString(data.title, 1, 100)
+        && data.mediaType in ['image', 'video']
+        && isValidString(data.url, 5, 350000)
+        && isValidString(data.category, 1, 50)
+        && isValidString(data.uploadedByUid, 1, 128)
+        && data.createdAt is timestamp;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+        'uid', 'displayName', 'email', 'role', 'notificationsEnabled',
+        'followedCreatorIds', 'createdAt', 'updatedAt'
+      ]) && data.keys().hasOnly([
+        'uid', 'displayName', 'email', 'photoUrl', 'role', 'selectedPlan',
+        'notificationsEnabled', 'followedCreatorIds', 'createdAt', 'updatedAt'
+      ])
+      && data.uid == userId
+      && isValidString(data.displayName, 1, 80)
+      && isValidString(data.email, 3, 120)
+      && (!('photoUrl' in data) || isValidString(data.photoUrl, 0, 500))
+      && data.role in ['viewer', 'creator', 'admin']
+      && (!('selectedPlan' in data) || isValidString(data.selectedPlan, 0, 60))
+      && data.notificationsEnabled is bool
+      && data.followedCreatorIds is list && data.followedCreatorIds.size() <= 100
+      && (data.followedCreatorIds.size() == 0 || isValidId(data.followedCreatorIds[0]))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp && data.updatedAt == request.time;
+    }
+
+    function isValidAdminRecord(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.uid == userId
+        && isValidString(data.email, 5, 120)
+        && isValidString(data.grantedBy, 1, 128)
+        && data.createdAt is timestamp && data.createdAt == request.time;
+    }
+
+    // 4. Collection Rules
+
+    match /siteSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create: if isValidId(settingId) && isAdmin() && isValidSiteSettings(incoming());
+      allow update: if isValidId(settingId) && isAdmin() && isValidSiteSettings(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'heroHeadline', 'heroSubheadline', 'primaryCtaLabel', 'secondaryCtaLabel',
+          'heroMediaUrl', 'activeViewersCount', 'liveChannelsCount', 'totalBroadcastsCount',
+          'streamingBannerNotice', 'updatedAt'
+        ]);
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isValidId(categoryId) && isAdmin()
+        && isValidCategory(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(categoryId) && isAdmin()
+        && isValidCategory(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'slug', 'description', 'sortOrder', 'updatedAt']);
+      allow delete: if isValidId(categoryId) && isAdmin();
+    }
+
+    match /creators/{creatorId} {
+      allow get: if isValidId(creatorId);
+      allow list: if true;
+      allow create: if isValidId(creatorId) && isAdmin()
+        && isValidCreator(incoming()) && incoming().createdAt == request.time;
+      allow update: if isValidId(creatorId) && isValidCreator(incoming())
+        && incoming().createdAt == existing().createdAt
+        && (
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'handle', 'bio', 'avatarUrl', 'primaryCategory',
+            'followersCount', 'isFeatured', 'isVerified', 'ownerUid', 'updatedAt'
+          ])) ||
+          (isVerifiedUser()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['followersCount', 'updatedAt'])
+            && (incoming().followersCount - existing().followersCount == 1 || existing().followersCount - incoming().followersCount == 1))
+        );
+      allow delete: if isValidId(creatorId) && isAdmin();
+    }
+
+    match /streams/{streamId} {
+      allow get: if isValidId(streamId);
+      allow list: if true;
+      allow create: if isValidId(streamId) && isVerifiedUser()
+        && isValidStream(incoming())
+        && incoming().createdAt == request.time
+        && (isAdmin() || incoming().ownerUid == request.auth.uid);
+      allow update: if isValidId(streamId) && isVerifiedUser()
+        && isValidStream(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().ownerUid == existing().ownerUid
+        && (
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'description', 'creatorId', 'creatorName', 'creatorAvatarUrl',
+            'category', 'tags', 'thumbnailUrl', 'videoPreviewUrl', 'viewerCount',
+            'isLive', 'isDemo', 'quality', 'providerType', 'updatedAt'
+          ])) ||
+          (existing().ownerUid == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'description', 'category', 'tags', 'thumbnailUrl', 'videoPreviewUrl',
+            'viewerCount', 'isLive', 'isDemo', 'quality', 'providerType', 'updatedAt'
+          ]))
+        );
+      allow delete: if isValidId(streamId) && (isAdmin() || (isVerifiedUser() && existing().ownerUid == request.auth.uid));
+
+      match /chat/{messageId} {
+        allow get: if isValidId(streamId) && isValidId(messageId);
+        allow list: if isValidId(streamId);
+        allow create: if isValidId(streamId) && isValidId(messageId)
+          && isVerifiedUser()
+          && isValidChatMessage(incoming(), streamId)
+          && exists(/databases/$(database)/documents/streams/$(streamId));
+        allow delete: if isValidId(streamId) && isValidId(messageId)
+          && (isAdmin() || (isVerifiedUser() && existing().authorUid == request.auth.uid));
+      }
+    }
+
+    match /pricingPlans/{planId} {
+      allow get: if isValidId(planId);
+      allow list: if true;
+      allow create: if isValidId(planId) && isAdmin() && isValidPricingPlan(incoming());
+      allow update: if isValidId(planId) && isAdmin() && isValidPricingPlan(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'tagline', 'priceLabel', 'billingCycle', 'features',
+          'isPopular', 'ctaLabel', 'sortOrder', 'updatedAt'
+        ]);
+      allow delete: if isValidId(planId) && isAdmin();
+    }
+
+    match /testimonials/{testimonialId} {
+      allow get: if isValidId(testimonialId);
+      allow list: if true;
+      allow create: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
+      allow update: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'authorName', 'authorRole', 'organization', 'avatarUrl',
+          'quote', 'isSample', 'sortOrder', 'updatedAt'
+        ]);
+      allow delete: if isValidId(testimonialId) && isAdmin();
+    }
+
+    match /faqs/{faqId} {
+      allow get: if isValidId(faqId);
+      allow list: if true;
+      allow create: if isValidId(faqId) && isAdmin() && isValidFaq(incoming());
+      allow update: if isValidId(faqId) && isAdmin() && isValidFaq(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['question', 'answer', 'sortOrder', 'updatedAt']);
+      allow delete: if isValidId(faqId) && isAdmin();
+    }
+
+    match /contactSubmissions/{submissionId} {
+      allow get: if isValidId(submissionId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(submissionId)
+        && isValidContactSubmission(incoming())
+        && incoming().status == 'new'
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(submissionId) && isAdmin()
+        && isValidContactSubmission(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isValidId(submissionId) && isAdmin();
+    }
+
+    match /mediaAssets/{assetId} {
+      allow get: if isValidId(assetId);
+      allow list: if true;
+      allow create: if isValidId(assetId) && isAdmin()
+        && isValidMediaAsset(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(assetId) && isAdmin()
+        && isValidMediaAsset(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().uploadedByUid == existing().uploadedByUid
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'mediaType', 'url', 'category']);
+      allow delete: if isValidId(assetId) && isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isVerifiedUser()
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() ||
+          (isOwner(userId) && incoming().role in ['viewer', 'creator'])
+        );
+      allow update: if isValidId(userId) && isVerifiedUser()
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && (
+          (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'photoUrl', 'role', 'selectedPlan', 'notificationsEnabled', 'followedCreatorIds', 'updatedAt'
+          ])) ||
+          (isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'photoUrl', 'selectedPlan', 'notificationsEnabled', 'followedCreatorIds', 'updatedAt'
+            ]))
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isAdmin() && isValidAdminRecord(incoming(), userId);
+      allow delete: if isValidId(userId) && isAdmin() && userId != request.auth.uid;
+    }
+  }
+}

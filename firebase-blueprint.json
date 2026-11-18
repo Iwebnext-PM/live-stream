@@ -1,0 +1,284 @@
+{
+  "entities": {
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Dynamic homepage hero copy, statistics, and platform configuration.",
+      "type": "object",
+      "properties": {
+        "heroHeadline": { "type": "string", "minLength": 5, "maxLength": 140 },
+        "heroSubheadline": { "type": "string", "minLength": 10, "maxLength": 500 },
+        "primaryCtaLabel": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "secondaryCtaLabel": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "heroMediaUrl": { "type": "string", "maxLength": 500 },
+        "activeViewersCount": { "type": "number" },
+        "liveChannelsCount": { "type": "number" },
+        "totalBroadcastsCount": { "type": "number" },
+        "streamingBannerNotice": { "type": "string", "maxLength": 300 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "heroHeadline",
+        "heroSubheadline",
+        "primaryCtaLabel",
+        "secondaryCtaLabel",
+        "heroMediaUrl",
+        "activeViewersCount",
+        "liveChannelsCount",
+        "totalBroadcastsCount",
+        "updatedAt"
+      ]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Streaming broadcast category.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 50, "pattern": "^[a-z0-9-]+$" },
+        "description": { "type": "string", "maxLength": 200 },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "slug", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "Creator": {
+      "title": "Creator",
+      "description": "Featured broadcaster profile.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "handle": { "type": "string", "minLength": 2, "maxLength": 50, "pattern": "^[a-zA-Z0-9_.-]+$" },
+        "bio": { "type": "string", "maxLength": 600 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "primaryCategory": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "followersCount": { "type": "number" },
+        "isFeatured": { "type": "boolean" },
+        "isVerified": { "type": "boolean" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "name",
+        "handle",
+        "bio",
+        "avatarUrl",
+        "primaryCategory",
+        "followersCount",
+        "isFeatured",
+        "isVerified",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Stream": {
+      "title": "Stream",
+      "description": "Live or demo stream listing.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "description": { "type": "string", "maxLength": 600 },
+        "creatorId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "creatorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "creatorAvatarUrl": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 50 },
+        "tags": { "type": "array" },
+        "thumbnailUrl": { "type": "string", "maxLength": 500 },
+        "videoPreviewUrl": { "type": "string", "maxLength": 500 },
+        "viewerCount": { "type": "number" },
+        "isLive": { "type": "boolean" },
+        "isDemo": { "type": "boolean" },
+        "quality": { "type": "string", "enum": ["1080p60", "720p60", "480p", "Auto"] },
+        "providerType": { "type": "string", "enum": ["demo", "livekit", "agora", "webrtc"] },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "title",
+        "creatorId",
+        "creatorName",
+        "category",
+        "tags",
+        "thumbnailUrl",
+        "viewerCount",
+        "isLive",
+        "isDemo",
+        "quality",
+        "providerType",
+        "ownerUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Real-time stream chat message.",
+      "type": "object",
+      "properties": {
+        "streamId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_-]+$" },
+        "authorUid": { "type": "string", "maxLength": 128 },
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["streamId", "authorUid", "authorName", "text", "createdAt"]
+    },
+    "PricingPlan": {
+      "title": "PricingPlan",
+      "description": "Subscription tier managed from admin dashboard.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "tagline": { "type": "string", "maxLength": 120 },
+        "priceLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "billingCycle": { "type": "string", "maxLength": 40 },
+        "features": { "type": "array" },
+        "isPopular": { "type": "boolean" },
+        "ctaLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "tagline", "priceLabel", "billingCycle", "features", "isPopular", "ctaLabel", "sortOrder", "updatedAt"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Customer testimonial card.",
+      "type": "object",
+      "properties": {
+        "authorName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "authorRole": { "type": "string", "maxLength": 100 },
+        "organization": { "type": "string", "maxLength": 100 },
+        "avatarUrl": { "type": "string", "maxLength": 500 },
+        "quote": { "type": "string", "minLength": 10, "maxLength": 500 },
+        "isSample": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorName", "authorRole", "organization", "avatarUrl", "quote", "isSample", "sortOrder", "updatedAt"]
+    },
+    "FaqItem": {
+      "title": "FaqItem",
+      "description": "Frequently asked question entry.",
+      "type": "object",
+      "properties": {
+        "question": { "type": "string", "minLength": 5, "maxLength": 200 },
+        "answer": { "type": "string", "minLength": 5, "maxLength": 1000 },
+        "sortOrder": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["question", "answer", "sortOrder", "updatedAt"]
+    },
+    "ContactSubmission": {
+      "title": "ContactSubmission",
+      "description": "Inbound contact inquiry containing user PII.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "email": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "subject": { "type": "string", "minLength": 2, "maxLength": 140 },
+        "message": { "type": "string", "minLength": 5, "maxLength": 2000 },
+        "status": { "type": "string", "enum": ["new", "reviewed", "resolved"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["fullName", "email", "subject", "message", "status", "createdAt", "updatedAt"]
+    },
+    "MediaAsset": {
+      "title": "MediaAsset",
+      "description": "Image or video asset managed in the admin media library.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "mediaType": { "type": "string", "enum": ["image", "video"] },
+        "url": { "type": "string", "minLength": 5, "maxLength": 350000 },
+        "category": { "type": "string", "maxLength": 50 },
+        "uploadedByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "mediaType", "url", "category", "uploadedByUid", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user account and preferences (PII isolated).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "displayName": { "type": "string", "maxLength": 80 },
+        "email": { "type": "string", "maxLength": 120 },
+        "photoUrl": { "type": "string", "maxLength": 500 },
+        "role": { "type": "string", "enum": ["viewer", "creator", "admin"] },
+        "selectedPlan": { "type": "string", "maxLength": 60 },
+        "notificationsEnabled": { "type": "boolean" },
+        "followedCreatorIds": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "role", "notificationsEnabled", "followedCreatorIds", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted admin role assignment record.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 120 },
+        "grantedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/siteSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Homepage and platform configuration documents."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Streaming category definitions."
+    },
+    "/creators/{creatorId}": {
+      "schema": { "$ref": "#/entities/Creator" },
+      "description": "Creator profiles."
+    },
+    "/streams/{streamId}": {
+      "schema": { "$ref": "#/entities/Stream" },
+      "description": "Live and demo stream listings."
+    },
+    "/streams/{streamId}/chat/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Real-time chat messages per stream."
+    },
+    "/pricingPlans/{planId}": {
+      "schema": { "$ref": "#/entities/PricingPlan" },
+      "description": "Pricing tiers."
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": { "$ref": "#/entities/Testimonial" },
+      "description": "Customer testimonials."
+    },
+    "/faqs/{faqId}": {
+      "schema": { "$ref": "#/entities/FaqItem" },
+      "description": "Frequently asked questions."
+    },
+    "/contactSubmissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/ContactSubmission" },
+      "description": "Contact form submissions (admin read/manage only)."
+    },
+    "/mediaAssets/{assetId}": {
+      "schema": { "$ref": "#/entities/MediaAsset" },
+      "description": "Admin-managed image and video assets."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles and follow lists."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Admin privileges."
+    }
+  }
+}

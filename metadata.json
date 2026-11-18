@@ -1,0 +1,6 @@
+{
+  "name": "GoToLive Stream",
+  "description": "Live video streaming platform to discover broadcasts, connect with creators, run interactive WebRTC studios, and manage platform content.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
